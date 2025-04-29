@@ -1,6 +1,5 @@
 import socket
 import threading
-import uuid
 import time
 from typing import Dict, List, Optional
 
