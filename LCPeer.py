@@ -115,8 +115,14 @@ class LCPeer:
             
     def _manejar_mensaje(self, id_usuario_remitente: bytes, datos: bytes):
         """Maneja mensajes entrantes"""
-        # TODO: Implementar manejo de mensajes
-        pass
+        operacion = datos[40]
+        
+        if operacion == self.OPERACION_ECO:
+            self._manejar_eco(id_usuario_remitente, datos)
+        elif operacion == self.OPERACION_MENSAJE:
+            self._manejar_mensaje(id_usuario_remitente, datos)
+        elif operacion == self.OPERACION_ARCHIVO:
+            self._manejar_archivo(id_usuario_remitente, datos)  # Implementar si es necesario
         
     def enviar_mensaje(self, destinatario: str, mensaje: str):
         """Envía un mensaje a un par específico"""
