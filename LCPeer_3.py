@@ -14,7 +14,7 @@ class LCPClient:
         # Configurar sockets
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.udp_socket.bind(('0.0.0.0', 9990))
+        self.udp_socket.bind(('0.0.0.0', 9990))  # Escuchar en todas las interfaces
         
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -29,8 +29,10 @@ class LCPClient:
     def _discovery_broadcast(self):
         """Envía periódicamente paquetes Echo para descubrir usuarios"""
         while self.running:
+            print("Enviando paquete de descubrimiento...")
             header = self._build_header(operation=0, user_to=b'\xFF'*20)
-            self.udp_socket.sendto(header, ('255.255.255.255', 9990))
+            self.udp_socket.sendto(header, ('255.255.255.255', 9990))  # Broadcast
+            print("Paquete de descubrimiento enviado.")
             threading.Event().wait(5)  # Esperar 5 segundos
     
     def _udp_listener(self):
@@ -65,11 +67,12 @@ class LCPClient:
                 # Responder con nuestro ID
                 response = self._build_response(status=0)
                 self.udp_socket.sendto(response, addr)
+                print(f"Respondido a {user_from.decode('utf-8')} con nuestro ID.")
                 
                 # Actualizar lista de peers
                 peer_id = user_from.decode('utf-8')
                 self.peers[peer_id] = addr
-                print(f"Discovered peer: {peer_id} at {addr}")
+                print(f"Descubierto par: {peer_id} en {addr}")
         
         elif operation == 1:  # Mensaje
             if user_to == b'\xFF'*20 or user_to == self.user_id:
@@ -131,13 +134,15 @@ class LCPClient:
     
     def send_message(self, peer_id, message):
         """Envía un mensaje a un peer específico"""
+        print(f"Intentando enviar mensaje a {peer_id}: {message}")
         if peer_id not in self.peers:
-            print(f"Peer {peer_id} not found")
+            print(f"Peer {peer_id} no encontrado")
             return
         
         # Generar ID único para el mensaje
         body_id = uuid.uuid4().int & (1<<64)-1  # 8 bytes
-        
+        print(f"ID del cuerpo del mensaje generado: {body_id}")
+
         # Construir y enviar header
         header = self._build_header(
             operation=1,
@@ -145,28 +150,34 @@ class LCPClient:
             body_id=body_id,
             body_length=len(message.encode('utf-8')))
         
+        print(f"Header construido: {header}")
         addr = self.peers[peer_id]
         self.udp_socket.sendto(header, addr)
-        
+        print("Header enviado.")
+
         # Esperar ACK
         try:
             self.udp_socket.settimeout(5)
             ack, _ = self.udp_socket.recvfrom(25)
+            print(f"ACK recibido: {ack}")
             if ack[0] == 0:  # OK
                 # Enviar cuerpo del mensaje
                 body = body_id.to_bytes(8, 'big') + message.encode('utf-8')
+                print(f"Enviando cuerpo del mensaje: {body}")
                 self.udp_socket.sendto(body, addr)
+                print("Cuerpo del mensaje enviado.")
                 
                 # Esperar confirmación final
                 self.udp_socket.settimeout(5)
                 final_ack, _ = self.udp_socket.recvfrom(25)
+                print(f"Confirmación final recibida: {final_ack}")
                 if final_ack[0] == 0:
-                    print(f"Message sent to {peer_id}")
+                    print(f"Mensaje enviado a {peer_id}")
                     self.message_history.append((self.user_id.decode('utf-8').strip(), message, datetime.now()))
                 else:
-                    print(f"Failed to send message to {peer_id}")
+                    print(f"Falló el envío del mensaje a {peer_id}")
         except socket.timeout:
-            print(f"Timeout waiting for ACK from {peer_id}")
+            print(f"Timeout esperando ACK de {peer_id}")
         finally:
             self.udp_socket.settimeout(None)
     
