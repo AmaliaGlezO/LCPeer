@@ -56,12 +56,15 @@ class LCPClient:
     def _process_udp_packet(self, data, addr):
         """Procesa un paquete UDP recibido"""
         if len(data) < 100:  # El header debe tener al menos 100 bytes
+            print("Paquete recibido es demasiado corto, ignorando.")
             return
         
         user_from = data[:20].strip(b'\x00')
         user_to = data[20:40]
         operation = data[40]
         
+        print(f"Paquete recibido de {user_from.decode('utf-8')} con operación {operation}")
+
         if operation == 0:  # Echo (descubrimiento)
             if user_from != self.user_id.strip(b'\x00'):
                 # Responder con nuestro ID
