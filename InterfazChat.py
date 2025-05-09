@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import scrolledtext, filedialog
-from LCPeer import LCPeer
+from LCPeer_2 import LCPeer
 import threading
 import time
 
@@ -151,6 +151,30 @@ class InterfazChat:
         
     def iniciar(self):
         self.ventana.mainloop()
+        
+    def _crear_encabezado(self, operacion: int, id_destino: bytes, body_id: int = 0, body_length: int = 0) -> bytes:
+        """Crea un encabezado de protocolo de 100 bytes exactos"""
+        encabezado = bytearray(self.TAMANO_ENCABEZADO)
+        
+        # UserIdFrom (20 bytes)
+        encabezado[0:20] = self.id_usuario
+        
+        # UserIdTo (20 bytes) - Cambiado a bytes
+        encabezado[20:40] = id_destino.ljust(20, b'\x00')[:20]  # Cambiado a b'\x00'
+        
+        # OperationCode (1 byte)
+        encabezado[40] = operacion
+        
+        # BodyId (1 byte)
+        encabezado[41] = body_id
+        
+        # BodyLength (8 bytes, big-endian)
+        encabezado[42:50] = body_length.to_bytes(8, byteorder='big')
+        
+        # Reserved (50 bytes)
+        encabezado[50:100] = b'\x00' * 50
+        
+        return bytes(encabezado)
         
 if __name__ == "__main__":
     app = InterfazChat()
