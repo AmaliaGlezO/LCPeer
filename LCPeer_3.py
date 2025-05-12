@@ -31,7 +31,7 @@ class LCPClient:
         while self.running:
             print("Enviando paquete de descubrimiento...")
             header = self._build_header(operation=0, user_to=b'\xFF'*20)
-            self.udp_socket.sendto(header, ('255.255.255.255', 0))  # Broadcast
+            self.udp_socket.sendto(header, ('255.255.255.255', 9990))  # Broadcast
             print("Paquete de descubrimiento enviado.")
             threading.Event().wait(5)  # Esperar 5 segundos
     
