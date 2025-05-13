@@ -15,6 +15,7 @@ class LCPClient:
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.udp_socket.bind(('0.0.0.0', 9990))  # Escuchar en todas las interfaces
+        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65507)  # Aumentar el búfer de recepción
         
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -31,7 +32,7 @@ class LCPClient:
         while self.running:
             print("Enviando paquete de descubrimiento...")
             header = self._build_header(operation=0, user_to=b'\xFF'*20)
-            self.udp_socket.sendto(header, ('255.255.255.255', 9990))  # Broadcast
+            self.udp_socket.sendto(header, ('192.168.143.255', 9990))  # Broadcast
             print("Paquete de descubrimiento enviado.")
             threading.Event().wait(5)  # Esperar 5 segundos
     
@@ -52,11 +53,14 @@ class LCPClient:
                 threading.Thread(target=self._handle_tcp_connection, args=(conn, addr)).start()
             except Exception as e:
                 print(f"Error en TCP listener: {e}")
+    def normalizar(self,name):
+        return name.strip().rstrip('\x00')
     
     def _process_udp_packet(self, data, addr):
         """Procesa un paquete UDP recibido"""
         if len(data) < 100:  # El header debe tener al menos 100 bytes
             print("Paquete recibido es demasiado corto, ignorando.")
+            print(data)
             return
         
         user_from = data[:20].strip(b'\x00')
@@ -74,7 +78,8 @@ class LCPClient:
                 
                 # Actualizar lista de peers
                 peer_id = user_from.decode('utf-8')
-                self.peers[peer_id] = addr
+                print(addr)
+                self.peers[self.normalizar(peer_id)] = (addr[0],9990)
                 print(f"Descubierto par: {peer_id} en {addr}")
         
         elif operation == 1:  # Mensaje
@@ -88,13 +93,17 @@ class LCPClient:
                 
                 # Esperar cuerpo del mensaje
                 try:
+                
                     body_data, _ = self.udp_socket.recvfrom(body_length + 8)
+                    
                     if len(body_data) >= 8 and body_data[:8] == body_id.to_bytes(8, 'big'):
                         message = body_data[8:].decode('utf-8')
                         self.message_history.append((user_from.decode('utf-8'), message, datetime.now()))
                         print(f"\nMessage from {user_from.decode('utf-8')}: {message}")
                         # Enviar confirmación final
                         self.udp_socket.sendto(response, addr)
+                        
+                        
                 except Exception as e:
                     print(f"Error receiving message body: {e}")
         
@@ -138,12 +147,12 @@ class LCPClient:
     def send_message(self, peer_id, message):
         """Envía un mensaje a un peer específico"""
         print(f"Intentando enviar mensaje a {peer_id}: {message}")
-        if peer_id not in self.peers:
+        if self.normalizar(peer_id) not in self.peers:
             print(f"Peer {peer_id} no encontrado")
             return
         
         # Generar ID único para el mensaje
-        body_id = uuid.uuid4().int & (1<<64)-1  # 8 bytes
+        body_id = uuid.uuid4().int %256  # 8 bytes
         print(f"ID del cuerpo del mensaje generado: {body_id}")
 
         # Construir y enviar header
@@ -155,6 +164,7 @@ class LCPClient:
         
         print(f"Header construido: {header}")
         addr = self.peers[peer_id]
+        print(addr)
         self.udp_socket.sendto(header, addr)
         print("Header enviado.")
 
