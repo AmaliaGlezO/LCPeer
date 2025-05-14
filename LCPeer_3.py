@@ -226,7 +226,7 @@ class LCPClient:
             if ack[0] == 0:  # OK
                 # Establecer conexión TCP y enviar archivo
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.connect(addr)
+                    s.connect((addr[0],9990))
                     with open(filepath, 'rb') as f:
                         # Enviar ID del archivo primero
                         s.send(file_id.to_bytes(8, 'big'))
