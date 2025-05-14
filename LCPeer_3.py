@@ -3,6 +3,7 @@ import threading
 import uuid
 import os
 from datetime import datetime
+import queue
 
 class LCPClient:
     def __init__(self, user_id):
@@ -10,6 +11,7 @@ class LCPClient:
         self.peers = {}  # {peer_id: (ip, port)}
         self.running = True
         self.message_history = []
+        self.response_queue = queue.Queue()  # Cola para respuestas
         
         # Configurar sockets
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -58,10 +60,14 @@ class LCPClient:
     
     def _process_udp_packet(self, data, addr):
         """Procesa un paquete UDP recibido"""
-        if len(data) < 100:  # El header debe tener al menos 100 bytes
-            print("Paquete recibido es demasiado corto, ignorando.")
-            print(data)
+        if len(data) == 25:  # Cambiar a 25 bytes como mínimo
+            print("respuesta recibido")
+            self.response_queue.put(data)
             return
+        
+        # Asegúrate de que el paquete tenga al menos 100 bytes para operaciones que lo requieran
+        if len(data) < 100:
+            print("Paquete recibido es corto, pero procesando como mensaje.")
         
         user_from = data[:20].strip(b'\x00')
         user_to = data[20:40]
@@ -78,8 +84,7 @@ class LCPClient:
                 
                 # Actualizar lista de peers
                 peer_id = user_from.decode('utf-8')
-                print(addr)
-                self.peers[self.normalizar(peer_id)] = (addr[0],9990)
+                self.peers[self.normalizar(peer_id)] = (addr[0], 9990)
                 print(f"Descubierto par: {peer_id} en {addr}")
         
         elif operation == 1:  # Mensaje
@@ -93,7 +98,6 @@ class LCPClient:
                 
                 # Esperar cuerpo del mensaje
                 try:
-                
                     body_data, _ = self.udp_socket.recvfrom(body_length + 8)
                     
                     if len(body_data) >= 8 and body_data[:8] == body_id.to_bytes(8, 'big'):
@@ -102,7 +106,7 @@ class LCPClient:
                         print(f"\nMessage from {user_from.decode('utf-8')}: {message}")
                         # Enviar confirmación final
                         self.udp_socket.sendto(response, addr)
-                        
+                        self.response_queue.put((addr, response))  # Colocar respuesta en la cola
                         
                 except Exception as e:
                     print(f"Error receiving message body: {e}")
@@ -111,10 +115,6 @@ class LCPClient:
             if user_to == b'\xFF'*20 or user_to == self.user_id:
                 file_id = data[41]
                 file_length = int.from_bytes(data[42:50], 'big')
-                
-                # Enviar ACK
-                response = self._build_response(status=0)
-                self.udp_socket.sendto(response, addr)
                 
                 # El archivo vendrá por TCP (manejado en _handle_tcp_connection)
     
@@ -171,7 +171,8 @@ class LCPClient:
         # Esperar ACK
         try:
             self.udp_socket.settimeout(5)
-            ack, _ = self.udp_socket.recvfrom(25)
+            ack = self.response_queue.get() 
+            print("hola") # Obtener respuesta de la cola
             print(f"ACK recibido: {ack}")
             if ack[0] == 0:  # OK
                 # Enviar cuerpo del mensaje
@@ -189,7 +190,7 @@ class LCPClient:
                     self.message_history.append((self.user_id.decode('utf-8').strip(), message, datetime.now()))
                 else:
                     print(f"Falló el envío del mensaje a {peer_id}")
-        except socket.timeout:
+        except queue.Empty:
             print(f"Timeout esperando ACK de {peer_id}")
         finally:
             self.udp_socket.settimeout(None)
@@ -205,7 +206,7 @@ class LCPClient:
             return
         
         # Generar ID único para el archivo
-        file_id = uuid.uuid4().int & (1<<64)-1  # 8 bytes
+        file_id = uuid.uuid4().int %256  # 8 bytes
         file_size = os.path.getsize(filepath)
         
         # Construir y enviar header
