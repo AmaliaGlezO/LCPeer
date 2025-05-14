@@ -221,12 +221,10 @@ class LCPClient:
         
         # Esperar ACK
         try:
-            self.udp_socket.settimeout(5)
-            ack, _ = self.udp_socket.recvfrom(25)
-            if ack[0] == 0:  # OK
+           
                 # Establecer conexión TCP y enviar archivo
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.connect((addr[0],9990))
+                    s.connect((addr))
                     with open(filepath, 'rb') as f:
                         # Enviar ID del archivo primero
                         s.send(file_id.to_bytes(8, 'big'))
