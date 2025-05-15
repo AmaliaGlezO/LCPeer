@@ -4,6 +4,54 @@ import uuid
 import os
 from datetime import datetime
 import queue
+import struct
+import subprocess
+import re
+
+def obtener_broadcast_windows():
+    """
+    Obtiene la dirección de broadcast en Windows usando ipconfig.
+    
+    Returns:
+        str: Dirección de broadcast o None si no se encuentra
+    """
+    try:
+        # Ejecutar ipconfig y capturar la salida
+        output = subprocess.check_output(
+            "ipconfig /all",
+            universal_newlines=True,
+            shell=True
+        )
+        
+        # Buscar todas las interfaces con su IP y máscara
+        interfaces = re.finditer(
+            r"(?:Ethernet|Wi-Fi|Wireless).*?IPv4 Address[^\d]*(?P<ip>\d+\.\d+\.\d+\.\d+).*?Subnet Mask[^\d]*(?P<mascara>\d+\.\d+\.\d+\.\d+)",
+            output,
+            re.DOTALL | re.IGNORECASE
+        )
+        
+        for match in interfaces:
+            ip = match.group('ip')
+            mascara = match.group('mascara')
+            
+            # Calcular broadcast: IP OR (NOT máscara)
+            ip_packed = socket.inet_aton(ip)
+            mascara_packed = socket.inet_aton(mascara)
+            
+            ip_num = struct.unpack("!L", ip_packed)[0]
+            mascara_num = struct.unpack("!L", mascara_packed)[0]
+            
+            broadcast_num = ip_num | (~mascara_num & 0xffffffff)
+            broadcast_ip = socket.inet_ntoa(struct.pack("!L", broadcast_num))
+            
+            return broadcast_ip
+        
+        return None
+    
+    except Exception as e:
+        print(f"Error al obtener broadcast: {e}")
+        return None
+
 
 class LCPClient:
     def __init__(self, user_id):
@@ -30,11 +78,15 @@ class LCPClient:
         threading.Thread(target=self._discovery_broadcast, daemon=True).start()
     
     def _discovery_broadcast(self):
+        print(obtener_broadcast_windows())
         """Envía periódicamente paquetes Echo para descubrir usuarios"""
         while self.running:
             print("Enviando paquete de descubrimiento...")
             header = self._build_header(operation=0, user_to=b'\xFF'*20)
-            self.udp_socket.sendto(header, ('192.168.143.255', 9990))  # Broadcast
+            
+            for i in obtener_broadcast_windows():
+
+                self.udp_socket.sendto(header, (i, 9990))  # Broadcast
             print("Paquete de descubrimiento enviado.")
             threading.Event().wait(5)  # Esperar 5 segundos
     
@@ -127,14 +179,21 @@ class LCPClient:
                 return
             
             # Recibir el resto del archivo
-            file_data = file_id + conn.recv(1024*1024)  # Asumimos archivos de hasta 1MB para simplificar
+            bythes_recibidos = 0
+            with open('temp_file.dat','wb')as f:
+                while bythes_recibidos < 51083282:
+                    restantes = 51083282 - bythes_recibidos
+                    chunk_size = restantes
+
+                    data = conn.recv(chunk_size)
+                    if not data:
+                        break
+
+                    f.write(data)
+                    bythes_recibidos+=len(data)
             
-            # Guardar archivo
-            filename = f"received_file_{int.from_bytes(file_id, 'big')}.dat"
-            with open(filename, 'wb') as f:
-                f.write(file_data[8:])  # Saltar los 8 bytes del ID
             
-            print(f"\nFile received from {addr}: saved as {filename}")
+            
             
             # Enviar confirmación
             response = self._build_response(status=0)
