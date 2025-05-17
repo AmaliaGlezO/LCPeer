@@ -9,33 +9,73 @@ import re
 import ipaddress
 import time
 
+import socket
+import subprocess
+import re
+import struct
+import platform
+
 def get_ip_and_mask():
-    """Obtiene la IP y máscara de red de la interfaz activa (multi-plataforma)"""
+    """Versión realmente multiplataforma para Windows y Linux"""
     try:
-        # Para Windows
-        result = subprocess.run(['ipconfig'], capture_output=True, text=True)
+        # Método universal para obtener IP (funciona en ambos sistemas)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        
+        # Detección de máscara según SO
+        if platform.system() == "Windows":
+            return get_windows_mask(local_ip)
+        else:
+            return get_linux_mask(local_ip)
+            
+    except Exception:
+        return None, None
+
+def get_windows_mask(local_ip):
+    """Obtiene máscara en Windows usando ipconfig"""
+    try:
+        result = subprocess.run(['ipconfig'], capture_output=True, text=True, shell=True)
         output = result.stdout
-        ip_match = re.search(r"IPv4 Address[ .]*: (\d+\.\d+\.\d+\.\d+)", output) or \
-                   re.search(r"Dirección IPv4[ .]*: (\d+\.\d+\.\d+\.\d+)", output)
-        mask_match = re.search(r"Subnet Mask[ .]*: (\d+\.\d+\.\d+\.\d+)", output) or \
-                     re.search(r"Máscara de subred[ .]*: (\d+\.\d+\.\d+\.\d+)", output)
         
-        if ip_match and mask_match:
-            return ip_match.group(1), mask_match.group(1)
+        # Buscar la interfaz con la IP local
+        for line in output.split('\n'):
+            if f"IPv4 Address. . . . . . . . . . . : {local_ip}" in line:
+                # La máscara está en las líneas siguientes
+                mask_line = next(l for l in output.split('\n')[output.split('\n').index(line):] 
+                               if "Subnet Mask" in l)
+                mask = re.search(r": (\d+\.\d+\.\d+\.\d+)", mask_line).group(1)
+                return local_ip, mask
+                
+    except Exception:
+        pass
+    return local_ip, '255.255.255.0'  # Fallback
+
+def get_linux_mask(local_ip):
+    """Obtiene máscara en Linux usando ip/ifconfig"""
+    try:
+        # Intentar con 'ip addr' (moderno)
+        result = subprocess.run(['ip', 'addr'], capture_output=True, text=True)
+        output = result.stdout
+        mask_match = re.search(r"inet {}\/(\d+)".format(local_ip), output)
         
-        # Para Linux/macOS
+        if mask_match:
+            prefix = int(mask_match.group(1))
+            mask = socket.inet_ntoa(struct.pack('!I', (1 << 32) - (1 << (32 - prefix))))
+            return local_ip, mask
+            
+        # Intentar con ifconfig (legacy)
         result = subprocess.run(['ifconfig'], capture_output=True, text=True)
         output = result.stdout
-        ip_match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", output)
         mask_match = re.search(r"netmask (\d+\.\d+\.\d+\.\d+)", output)
         
-        if ip_match and mask_match:
-            return ip_match.group(1), mask_match.group(1)
+        if mask_match:
+            return local_ip, mask_match.group(1)
             
-    except Exception as e:
-        print(f"Error getting network info: {e}")
-    
-    return None, None
+    except Exception:
+        pass
+    return local_ip, '255.255.255.0'  # Fallback
 
 def calcular_broadcast(ip, mask):
     """Calcula la dirección de broadcast para la red"""
