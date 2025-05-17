@@ -223,7 +223,8 @@ class LCPClient:
         try:
             self.udp_socket.settimeout(5)
             ack = self.response_queue.get() 
-            print("hola") # Obtener respuesta de la cola
+            self.udp_socket.settimeout(None)
+            # Obtener respuesta de la cola
             print(f"ACK recibido: {ack}")
             print(ack)
             if ack[0] == 0:  # OK
@@ -235,7 +236,9 @@ class LCPClient:
                 
                 # Esperar confirmación final
                 self.udp_socket.settimeout(5)
-                final_ack, _ = self.udp_socket.recvfrom(25)
+                
+                final_ack = self.response_queue.get()
+                self.udp_socket.settimeout(None)
                 print(f"Confirmación final recibida: {final_ack}")
                 if final_ack[0] == 0:
                     print(f"Mensaje enviado a {peer_id}")

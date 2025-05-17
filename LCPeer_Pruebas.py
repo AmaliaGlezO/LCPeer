@@ -293,7 +293,7 @@ class LCPClient:
             self.send_message_to_all(message)
             return
         
-        if peer_id == chr(255)*20:
+        if peer_id == b'\0ff'*20:
             ip, mask = get_ip_and_mask()
             broadcast = calcular_broadcast(ip, mask) or '255.255.255.255'
             addr = (broadcast, 9990)
@@ -302,7 +302,7 @@ class LCPClient:
                 print(f"Peer {peer_id} no encontrado")
                 return
             addr = self.peers[peer_id]
-
+        
         body_id = uuid.uuid4().int % 256
         header = self._build_header(
             operation=1,
@@ -310,7 +310,7 @@ class LCPClient:
             body_id=body_id,
             body_length=len(message.encode('utf-8'))
         )
-        self.udp_socket.sendto(header, addr)
+        self.udp_socket.sendto(header, (addr[0],addr[1]))
         try:
             self.udp_socket.settimeout(5)
             ack = self.response_queue.get()
