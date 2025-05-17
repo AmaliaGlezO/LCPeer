@@ -7,50 +7,26 @@ import queue
 import struct
 import subprocess
 import re
+import ipaddress
+import time 
+def get_ip_and_mask():
+    # Ejecutar ipconfig y capturar la salida
+    result = subprocess.run(['ipconfig'], capture_output=True, text=True)
+    output = result.stdout
 
-def obtener_broadcast_windows():
-    """
-    Obtiene la dirección de broadcast en Windows usando ipconfig.
-    
-    Returns:
-        str: Dirección de broadcast o None si no se encuentra
-    """
-    try:
-        # Ejecutar ipconfig y capturar la salida
-        output = subprocess.check_output(
-            "ipconfig /all",
-            universal_newlines=True,
-            shell=True
-        )
-        
-        # Buscar todas las interfaces con su IP y máscara
-        interfaces = re.finditer(
-            r"(?:Ethernet|Wi-Fi|Wireless).*?IPv4 Address[^\d]*(?P<ip>\d+\.\d+\.\d+\.\d+).*?Subnet Mask[^\d]*(?P<mascara>\d+\.\d+\.\d+\.\d+)",
-            output,
-            re.DOTALL | re.IGNORECASE
-        )
-        
-        for match in interfaces:
-            ip = match.group('ip')
-            mascara = match.group('mascara')
-            
-            # Calcular broadcast: IP OR (NOT máscara)
-            ip_packed = socket.inet_aton(ip)
-            mascara_packed = socket.inet_aton(mascara)
-            
-            ip_num = struct.unpack("!L", ip_packed)[0]
-            mascara_num = struct.unpack("!L", mascara_packed)[0]
-            
-            broadcast_num = ip_num | (~mascara_num & 0xffffffff)
-            broadcast_ip = socket.inet_ntoa(struct.pack("!L", broadcast_num))
-            
-            return broadcast_ip
-        
-        return None
-    
-    except Exception as e:
-        print(f"Error al obtener broadcast: {e}")
-        return None
+    # Buscar IPv4 y máscara usando expresiones regulares
+    ip_match = re.search(r"Dirección IPv4[ .]+: (\d+\.\d+\.\d+\.\d+)", output)
+    mask_match = re.search(r"Máscara de subred[ .]+: (\d+\.\d+\.\d+\.\d+)", output)
+
+    if ip_match and mask_match:
+        return ip_match.group(1), mask_match.group(1)
+    return None, None
+
+def calcular_broadcast(ip, mask):
+    if ip and mask:
+        network = ipaddress.IPv4Network(f"{ip}/{mask}", strict=False)
+        return str(network.broadcast_address)
+    return None
 
 
 class LCPClient:
@@ -78,13 +54,16 @@ class LCPClient:
         threading.Thread(target=self._discovery_broadcast, daemon=True).start()
     
     def _discovery_broadcast(self):
-        print(obtener_broadcast_windows())
+        # Obtener IP y máscara
+        ip, mask = get_ip_and_mask()
+
+       
         """Envía periódicamente paquetes Echo para descubrir usuarios"""
         while self.running:
             print("Enviando paquete de descubrimiento...")
             header = self._build_header(operation=0, user_to=b'\xFF'*20)
             
-            for i in obtener_broadcast_windows():
+            for i in ['193.168.143.255']:
 
                 self.udp_socket.sendto(header, (i, 9990))  # Broadcast
             print("Paquete de descubrimiento enviado.")
@@ -167,7 +146,7 @@ class LCPClient:
             if user_to == b'\xFF'*20 or user_to == self.user_id:
                 file_id = data[41]
                 file_length = int.from_bytes(data[42:50], 'big')
-                
+                self.file = {'file_length':file_length,'file_id':file_id,'user_from':user_from}
                 # El archivo vendrá por TCP (manejado en _handle_tcp_connection)
     
     def _handle_tcp_connection(self, conn, addr):
@@ -176,28 +155,41 @@ class LCPClient:
             # Recibir los primeros 8 bytes (ID del archivo)
             file_id = conn.recv(8)
             if not file_id:
+                print("No se recibió ID del archivo.")
                 return
-            
+
+            # Confirmar que el ID del archivo coincide
+            print(file_id)
+            print(self.file['file_id'].to_bytes(8,'big'))
+            if file_id != self.file['file_id'].to_bytes(8,'big'):
+                print("ID de archivo no coincide.")
+                return
+
             # Recibir el resto del archivo
             bythes_recibidos = 0
-            with open('temp_file.dat','wb')as f:
-                while bythes_recibidos < 51083282:
-                    restantes = 51083282 - bythes_recibidos
-                    chunk_size = restantes
+            with open(f'temp_file{time.time()}.dat', 'wb') as f:
+                while bythes_recibidos < self.file['file_length']:
+                    restantes = self.file['file_length'] - bythes_recibidos
+                    chunk_size = min(restantes, 65507)  # Limitar el tamaño del chunk a 65507 bytes
 
                     data = conn.recv(chunk_size)
                     if not data:
+                        print("Conexión cerrada antes de completar la recepción del archivo.")
                         break
 
                     f.write(data)
-                    bythes_recibidos+=len(data)
-            
-            
-            
-            
-            # Enviar confirmación
-            response = self._build_response(status=0)
-            conn.send(response)
+                    bythes_recibidos += len(data)
+
+            # Verificar si se recibió el archivo completo
+            if bythes_recibidos == self.file['file_length']:
+                print(f"\nArchivo recibido de {addr}: guardado como temp_file{time.time()}.dat")
+                # Enviar confirmación
+                response = self._build_response(status=0)
+                conn.send(response)
+            else:
+                print("Error: archivo recibido incompleto.")
+                response = self._build_response(status=1)  # Error
+                conn.send(response)
         except Exception as e:
             print(f"Error handling TCP connection: {e}")
         finally:
@@ -211,7 +203,7 @@ class LCPClient:
             return
         
         # Generar ID único para el mensaje
-        body_id = uuid.uuid4().int %256  # 8 bytes
+        body_id = uuid.uuid4().int %256  # 1 bytes
         print(f"ID del cuerpo del mensaje generado: {body_id}")
 
         # Construir y enviar header
@@ -233,6 +225,7 @@ class LCPClient:
             ack = self.response_queue.get() 
             print("hola") # Obtener respuesta de la cola
             print(f"ACK recibido: {ack}")
+            print(ack)
             if ack[0] == 0:  # OK
                 # Enviar cuerpo del mensaje
                 body = body_id.to_bytes(8, 'big') + message.encode('utf-8')
@@ -313,16 +306,17 @@ class LCPClient:
         header[41] = body_id         # BodyId (1 byte)
         header[42:50] = body_length.to_bytes(8, 'big')  # BodyLength
         # El resto (50 bytes) son reservados
-        return bytes(header)
+        return header
     
     def _build_response(self, status, response_id=None):
         """Construye una respuesta de 25 bytes según especificación LCP"""
         response = bytearray(25)
         response[0] = status  # ResponseStatus
-        if response_id:
-            response[1:21] = response_id.ljust(20)[:20].encode('utf-8')  # ResponseId
-        # El resto (4 bytes) son reservados
-        return bytes(response)
+        if not response_id:
+            response[1:21] = self.user_id  # ResponseId
+        else:
+            response[1:21]=response_id.ljust(20)[:20].encode('utf-8')# El resto (4 bytes) son reservados
+        return response
     
     def shutdown(self):
         """Cierra limpiamente el cliente"""

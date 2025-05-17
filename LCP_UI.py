@@ -87,17 +87,20 @@ class LCPGUI:
             messagebox.showwarning("Advertencia", "Selecciona un peer primero.")
             return None
         return self.peer_listbox.get(selected[0])
-
+    
     def send_message(self):
         peer_id = self.get_selected_peer()
         if not peer_id:
             return
+
+        peer_id = peer_id.strip()  # Normalizar ID del peer antes de enviarlo
 
         message = self.message_entry.get().strip()
         if not message:
             return
 
         threading.Thread(target=self._send_message_thread, args=(peer_id, message), daemon=True).start()
+
 
     def _send_message_thread(self, peer_id, message):
         try:
