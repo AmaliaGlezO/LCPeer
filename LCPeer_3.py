@@ -272,7 +272,7 @@ class LCPClient:
         
         if not message_sent:
             print("Fallo después de 5 intentos de enviar mensaje completo")
-    
+
     def send_file(self, peer_id, filepath):
         """Envía un archivo a un peer específico"""
         if peer_id not in self.peers:
