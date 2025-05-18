@@ -1,5 +1,5 @@
-import tkinter as tk
-from tkinter import filedialog, scrolledtext, messagebox
+import customtkinter as ctk
+from tkinter import filedialog, messagebox
 from threading import Thread
 from LCPeer_3 import LCPClient
 import time
@@ -10,23 +10,28 @@ class LCPGUI:
         self.root = root
         self.root.title("LCPeer - Chat y Transferencia de Archivos")
         self.root.geometry("800x550")
-        self.root.configure(bg="#eaeaea")
-
+        
+        # Configure appearance
+        ctk.set_appearance_mode("System")  # Can be "System", "Dark", or "Light"
+        ctk.set_default_color_theme("blue")  # Themes: "blue", "green", "dark-blue"
+        
         self.client = None
         self._build_login()
 
     def _build_login(self):
-        self.login_frame = tk.Frame(self.root, bg="#eaeaea", padx=20, pady=20)
-        self.login_frame.pack(pady=100)
+        self.login_frame = ctk.CTkFrame(self.root)
+        self.login_frame.pack(pady=100, padx=20, fill="both", expand=True)
 
-        tk.Label(self.login_frame, text="Ingresa tu ID (max 20 caracteres):", bg="#eaeaea", font=("Helvetica", 12),).pack()
-        self.user_entry = tk.Entry(self.login_frame, font=("Helvetica", 14), width=30, bd=2, relief="groove")
+        ctk.CTkLabel(self.login_frame, text="Ingresa tu ID (max 20 caracteres):", 
+                     font=("Helvetica", 12)).pack(pady=(0, 10))
+        
+        self.user_entry = ctk.CTkEntry(self.login_frame, font=("Helvetica", 14), width=300)
         self.user_entry.insert(0, "Amalia")
         self.user_entry.pack(pady=10)
 
-        tk.Button(
+        ctk.CTkButton(
             self.login_frame, text="Iniciar", font=("Helvetica", 12),
-            command=self.start_client, bg="#4CAF50", fg="white", bd=0, padx=10
+            command=self.start_client, fg_color="#4CAF50", hover_color="#45a049"
         ).pack(pady=5)
 
     def start_client(self):
@@ -40,60 +45,101 @@ class LCPGUI:
         self._build_main_interface()
 
     def _build_main_interface(self):
-        self.left_frame = tk.Frame(self.root, bg="#ffffff", width=200)
-        self.left_frame.pack(side=tk.LEFT, fill=tk.Y)
+        self.root.grid_columnconfigure(1, weight=1)
+        self.root.grid_rowconfigure(0, weight=1)
 
-        self.right_frame = tk.Frame(self.root, bg="#f8f9fa")
-        self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        # Left frame for peer list and buttons
+        self.left_frame = ctk.CTkFrame(self.root, width=200, corner_radius=0)
+        self.left_frame.grid(row=0, column=0, sticky="nswe")
+        self.left_frame.grid_rowconfigure(1, weight=1)
 
-        self.peer_listbox = tk.Listbox(self.left_frame, font=("Helvetica", 12), bg="#f0f0f0", bd=2, relief="groove")
-        self.peer_listbox.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # Right frame for chat and message input
+        self.right_frame = ctk.CTkFrame(self.root, corner_radius=0)
+        self.right_frame.grid(row=0, column=1, sticky="nswe")
+        self.right_frame.grid_rowconfigure(0, weight=1)
+        self.right_frame.grid_columnconfigure(0, weight=1)
 
-        tk.Button(self.left_frame, text="Actualizar pares", command=self.update_peers, bg="#2196F3", fg="white", bd=0, padx=10).pack(pady=5)
-        tk.Button(self.left_frame, text="Cerrar", command=self.shutdown, bg="#f44336", fg="white", bd=0, padx=10).pack(pady=5)
+        # Peer list
+        self.peer_listbox = ctk.CTkScrollableFrame(self.left_frame, label_text="Peers disponibles")
+        self.peer_listbox.grid(row=1, column=0, padx=5, pady=5, sticky="nswe")
+        self.peer_listbox.grid_columnconfigure(0, weight=1)
 
-        self.chat_area = scrolledtext.ScrolledText(self.right_frame, state='disabled', font=("Helvetica", 12), bg="#ffffff", wrap=tk.WORD)
-        self.chat_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Buttons in left frame
+        ctk.CTkButton(
+            self.left_frame, text="Actualizar pares", 
+            command=self.update_peers, fg_color="#2196F3", hover_color="#1976D2"
+        ).grid(row=2, column=0, padx=5, pady=5, sticky="we")
 
-        self.message_entry = tk.Entry(self.right_frame, font=("Helvetica", 12), bd=2, relief="groove")
-        self.message_entry.pack(fill=tk.X, padx=10, pady=(0, 5))
+        ctk.CTkButton(
+            self.left_frame, text="Cerrar", 
+            command=self.shutdown, fg_color="#f44336", hover_color="#d32f2f"
+        ).grid(row=3, column=0, padx=5, pady=5, sticky="we")
+
+        # Chat area
+        self.chat_area = ctk.CTkTextbox(self.right_frame, font=("Helvetica", 12), wrap="word")
+        self.chat_area.grid(row=0, column=0, padx=10, pady=10, sticky="nswe")
+        self.chat_area.configure(state="disabled")
+
+        # Message entry
+        self.message_entry = ctk.CTkEntry(self.right_frame, font=("Helvetica", 12))
+        self.message_entry.grid(row=1, column=0, padx=10, pady=(0, 5), sticky="we")
         self.message_entry.bind("<Return>", lambda event: self.send_message())
 
-        button_frame = tk.Frame(self.right_frame, bg="#f8f9fa")
-        button_frame.pack(pady=10)
+        # Button frame
+        button_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
+        button_frame.grid(row=2, column=0, pady=10, sticky="we")
+        button_frame.grid_columnconfigure(0, weight=1)
+        button_frame.grid_columnconfigure(1, weight=1)
 
-        self.send_msg_btn = tk.Button(
+        self.send_msg_btn = ctk.CTkButton(
             button_frame, text="Enviar Mensaje", command=self.send_message,
-            bg="#4CAF50", fg="white", bd=0, font=("Helvetica", 12), width=18, height=2
+            fg_color="#4CAF50", hover_color="#45a049", font=("Helvetica", 12)
         )
-        self.send_msg_btn.pack(side=tk.LEFT, padx=10)
+        self.send_msg_btn.grid(row=0, column=0, padx=10, sticky="we")
 
-        self.send_file_btn = tk.Button(
+        self.send_file_btn = ctk.CTkButton(
             button_frame, text="Enviar Archivo", command=self.send_file,
-            bg="#2196F3", fg="white", bd=0, font=("Helvetica", 12), width=18, height=2
+            fg_color="#2196F3", hover_color="#1976D2", font=("Helvetica", 12)
         )
-        self.send_file_btn.pack(side=tk.LEFT, padx=10)
+        self.send_file_btn.grid(row=0, column=1, padx=10, sticky="we")
 
         Thread(target=self._auto_refresh_history, daemon=True).start()
 
     def update_peers(self):
-        self.peer_listbox.delete(0, tk.END)
+        # Clear existing peer widgets
+        for widget in self.peer_listbox.winfo_children():
+            widget.destroy()
+            
+        # Add new peers
         for peer_id in self.client.peers:
-            self.peer_listbox.insert(tk.END, peer_id)
+            peer_label = ctk.CTkLabel(self.peer_listbox, text=peer_id, font=("Helvetica", 12))
+            peer_label.pack(fill="x", pady=2)
+            peer_label.bind("<Button-1>", lambda e, pid=peer_id: self._select_peer(pid))
+
+    def _select_peer(self, peer_id):
+        # Clear previous selection
+        for widget in self.peer_listbox.winfo_children():
+            widget.configure(fg_color="transparent")
+            
+        # Highlight selected peer
+        for widget in self.peer_listbox.winfo_children():
+            if widget.cget("text") == peer_id:
+                widget.configure(fg_color="#3B8ED0")
+                break
 
     def get_selected_peer(self):
-        selected = self.peer_listbox.curselection()
-        if not selected:
-            messagebox.showwarning("Advertencia", "Selecciona un peer primero.")
-            return None
-        return self.peer_listbox.get(selected[0])
-    
+        # Find which peer is selected (has colored background)
+        for widget in self.peer_listbox.winfo_children():
+            if widget.cget("fg_color") == "#3B8ED0":
+                return widget.cget("text")
+        
+        messagebox.showwarning("Advertencia", "Selecciona un peer primero.")
+        return None
+
     def send_message(self):
         peer_id = self.get_selected_peer()
         if not peer_id:
             return
-
-        peer_id = peer_id.strip()  # Normalizar ID del peer antes de enviarlo
 
         message = self.message_entry.get().strip()
         if not message:
@@ -101,18 +147,17 @@ class LCPGUI:
 
         threading.Thread(target=self._send_message_thread, args=(peer_id, message), daemon=True).start()
 
-
     def _send_message_thread(self, peer_id, message):
         try:
             self._set_interaction_state(False)
             self.client.send_message(peer_id, message)
-            self.root.after(0, lambda: self.message_entry.delete(0, tk.END))
+            self.root.after(0, lambda: self.message_entry.delete(0, "end"))
             self._refresh_history()
             
-            # Imprimir en el área de chat
-            self.chat_area.config(state='normal')
-            self.chat_area.insert(tk.END, f"Mensaje enviado a {peer_id}: {message}\n")
-            self.chat_area.config(state='disabled')
+            # Print in chat area
+            self.chat_area.configure(state="normal")
+            self.chat_area.insert("end", f"Mensaje enviado a {peer_id}: {message}\n")
+            self.chat_area.configure(state="disabled")
             
         except Exception as e:
             messagebox.showerror("Error al enviar mensaje", str(e))
@@ -140,12 +185,12 @@ class LCPGUI:
             self._set_interaction_state(True)
 
     def _refresh_history(self):
-        self.chat_area.config(state='normal')
-        self.chat_area.delete(1.0, tk.END)
+        self.chat_area.configure(state="normal")
+        self.chat_area.delete("1.0", "end")
         for sender, message, timestamp in self.client.message_history:
             time_str = timestamp.strftime("%H:%M:%S")
-            self.chat_area.insert(tk.END, f"[{time_str}] {sender}: {message}\n")
-        self.chat_area.config(state='disabled')
+            self.chat_area.insert("end", f"[{time_str}] {sender}: {message}\n")
+        self.chat_area.configure(state="disabled")
 
     def _auto_refresh_history(self):
         while True:
@@ -154,9 +199,9 @@ class LCPGUI:
 
     def _set_interaction_state(self, enabled: bool):
         state = "normal" if enabled else "disabled"
-        self.send_msg_btn.config(state=state)
-        self.send_file_btn.config(state=state)
-        self.message_entry.config(state=state)
+        self.send_msg_btn.configure(state=state)
+        self.send_file_btn.configure(state=state)
+        self.message_entry.configure(state=state)
 
     def shutdown(self):
         if self.client:
@@ -164,6 +209,6 @@ class LCPGUI:
         self.root.destroy()
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    root = ctk.CTk()
     app = LCPGUI(root)
     root.mainloop()

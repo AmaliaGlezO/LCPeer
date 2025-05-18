@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from threading import Thread
-from LCPeer_Pruebas import LCPClient
+from LCPeer_3 import LCPClient
 import time
 
 class LCPGUI:
