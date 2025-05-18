@@ -4,6 +4,9 @@ from threading import Thread
 from LCPeer_3 import LCPClient
 import time
 import threading
+import json
+import os
+from datetime import datetime
 
 class LCPGUI:
     def __init__(self, root):
@@ -16,7 +19,62 @@ class LCPGUI:
         ctk.set_default_color_theme("blue")
         
         self.client = None
+        self.current_peer = None
+        self.history_dir = "chat_history"
+        self._create_history_dir()
         self._build_login()
+
+    def _create_history_dir(self):
+        """Crea el directorio para guardar los historiales si no existe"""
+        if not os.path.exists(self.history_dir):
+            os.makedirs(self.history_dir)
+
+    def _get_history_file(self, peer_id):
+        """Devuelve la ruta del archivo de historial para un peer específico"""
+        return os.path.join(self.history_dir, f"{peer_id}.json")
+
+    def _save_message(self, peer_id, sender, message, timestamp=None):
+        """Guarda un mensaje en el historial del peer especificado"""
+        if timestamp is None:
+            timestamp = datetime.now().isoformat()
+        
+        history_file = self._get_history_file(peer_id)
+        history = self._load_peer_history(peer_id)
+        
+        history.append({
+            "timestamp": timestamp,
+            "sender": sender,
+            "message": message
+        })
+        
+        with open(history_file, 'w') as f:
+            json.dump(history, f, indent=2)
+
+    def _load_peer_history(self, peer_id):
+        """Carga el historial de mensajes con un peer específico"""
+        history_file = self._get_history_file(peer_id)
+        
+        if not os.path.exists(history_file):
+            return []
+            
+        try:
+            with open(history_file, 'r') as f:
+                return json.load(f)
+        except:
+            return []
+
+    def _display_peer_history(self, peer_id):
+        """Muestra el historial de mensajes con un peer en el área de chat"""
+        history = self._load_peer_history(peer_id)
+        self.chat_area.configure(state="normal")
+        self.chat_area.delete("1.0", "end")
+        
+        for msg in history:
+            timestamp = datetime.fromisoformat(msg["timestamp"]).strftime("%Y-%m-%d %H:%M:%S")
+            self.chat_area.insert("end", f"[{timestamp}] {msg['sender']}: {msg['message']}\n")
+        
+        self.chat_area.configure(state="disabled")
+        self.chat_area.see("end")
 
     def _build_login(self):
         self.login_frame = ctk.CTkFrame(self.root)
@@ -136,6 +194,10 @@ class LCPGUI:
             self.chat_area.insert("end", f"[Broadcast enviado a todos]: {message}\n")
             self.chat_area.configure(state="disabled")
             
+            # Guardar en historial de cada peer
+            for peer_id in self.client.peers:
+                self._save_message(peer_id, "Broadcast", message)
+            
             # Limpiar el campo de mensaje
             self.message_entry.delete(0, "end")
             
@@ -152,21 +214,22 @@ class LCPGUI:
             peer_label.bind("<Button-1>", lambda e, pid=peer_id: self._select_peer(pid))
 
     def _select_peer(self, peer_id):
+        """Selecciona un peer y carga su historial de chat"""
         for widget in self.peer_listbox.winfo_children():
             widget.configure(fg_color="transparent")
             
         for widget in self.peer_listbox.winfo_children():
             if widget.cget("text") == peer_id:
                 widget.configure(fg_color="#3B8ED0")
+                self.current_peer = peer_id
+                self._display_peer_history(peer_id)
                 break
 
     def get_selected_peer(self):
-        for widget in self.peer_listbox.winfo_children():
-            if widget.cget("fg_color") == "#3B8ED0":
-                return widget.cget("text")
-        
-        messagebox.showwarning("Advertencia", "Selecciona un peer primero.")
-        return None
+        if not self.current_peer:
+            messagebox.showwarning("Advertencia", "Selecciona un peer primero.")
+            return None
+        return self.current_peer
 
     def send_message(self):
         peer_id = self.get_selected_peer()
@@ -182,13 +245,17 @@ class LCPGUI:
     def _send_message_thread(self, peer_id, message):
         try:
             self._set_interaction_state(False)
+            timestamp = datetime.now()
             self.client.send_message(peer_id, message)
             self.root.after(0, lambda: self.message_entry.delete(0, "end"))
-            self._refresh_history()
             
+            # Mostrar en el chat
             self.chat_area.configure(state="normal")
-            self.chat_area.insert("end", f"Mensaje enviado a {peer_id}: {message}\n")
+            self.chat_area.insert("end", f"[Tú]: {message}\n")
             self.chat_area.configure(state="disabled")
+            
+            # Guardar en historial
+            self._save_message(peer_id, self.client.user_id.decode("utf-8").strip(), message, timestamp.isoformat())
             
         except Exception as e:
             messagebox.showerror("Error al enviar mensaje", str(e))
@@ -209,19 +276,42 @@ class LCPGUI:
     def _send_file_thread(self, peer_id, filepath):
         try:
             self._set_interaction_state(False)
+            timestamp = datetime.now()
             self.client.send_file(peer_id, filepath)
+            
+            # Guardar en historial
+            filename = os.path.basename(filepath)
+            self._save_message(peer_id, self.client.user_id.decode("utf-8").strip(), 
+                             f"Archivo enviado: {filename}", timestamp.isoformat())
+            
+            # Mostrar en el chat
+            self.chat_area.configure(state="normal")
+            self.chat_area.insert("end", f"[Tú] Archivo enviado: {filename}\n")
+            self.chat_area.configure(state="disabled")
+            
         except Exception as e:
             messagebox.showerror("Error al enviar archivo", str(e))
         finally:
             self._set_interaction_state(True)
 
     def _refresh_history(self):
-        self.chat_area.configure(state="normal")
-        self.chat_area.delete("1.0", "end")
-        for sender, message, timestamp in self.client.message_history:
-            time_str = timestamp.strftime("%H:%M:%S")
-            self.chat_area.insert("end", f"[{time_str}] {sender}: {message}\n")
-        self.chat_area.configure(state="disabled")
+        """Actualiza el historial cuando llegan nuevos mensajes"""
+        if not self.current_peer:
+            return
+            
+        # Solo actualizamos si hay nuevos mensajes
+        current_count = len(self._load_peer_history(self.current_peer))
+        new_messages = [msg for msg in self.client.message_history 
+                       if msg[0] == self.current_peer and 
+                       not any(m for m in self._load_peer_history(self.current_peer) 
+                           if m["sender"] == msg[0] and m["message"] == msg[1])]
+        
+        if new_messages:
+            for sender, message, timestamp in new_messages:
+                self._save_message(self.current_peer, sender, message, timestamp.isoformat())
+            
+            if self.current_peer:
+                self._display_peer_history(self.current_peer)
 
     def _auto_refresh_history(self):
         while True:
