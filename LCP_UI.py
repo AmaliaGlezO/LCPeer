@@ -9,11 +9,11 @@ class LCPGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("LCPeer - Chat y Transferencia de Archivos")
-        self.root.geometry("800x550")
+        self.root.geometry("900x600")
         
         # Configure appearance
-        ctk.set_appearance_mode("System")  # Can be "System", "Dark", or "Light"
-        ctk.set_default_color_theme("blue")  # Themes: "blue", "green", "dark-blue"
+        ctk.set_appearance_mode("System")
+        ctk.set_default_color_theme("blue")
         
         self.client = None
         self._build_login()
@@ -90,45 +90,77 @@ class LCPGUI:
         button_frame.grid(row=2, column=0, pady=10, sticky="we")
         button_frame.grid_columnconfigure(0, weight=1)
         button_frame.grid_columnconfigure(1, weight=1)
+        button_frame.grid_columnconfigure(2, weight=1)
 
         self.send_msg_btn = ctk.CTkButton(
             button_frame, text="Enviar Mensaje", command=self.send_message,
             fg_color="#4CAF50", hover_color="#45a049", font=("Helvetica", 12)
         )
-        self.send_msg_btn.grid(row=0, column=0, padx=10, sticky="we")
+        self.send_msg_btn.grid(row=0, column=0, padx=5, sticky="we")
 
         self.send_file_btn = ctk.CTkButton(
             button_frame, text="Enviar Archivo", command=self.send_file,
             fg_color="#2196F3", hover_color="#1976D2", font=("Helvetica", 12)
         )
-        self.send_file_btn.grid(row=0, column=1, padx=10, sticky="we")
+        self.send_file_btn.grid(row=0, column=1, padx=5, sticky="we")
+
+        self.broadcast_btn = ctk.CTkButton(
+            button_frame, text="Enviar a Todos", command=self.send_broadcast,
+            fg_color="#9C27B0", hover_color="#7B1FA2", font=("Helvetica", 12)
+        )
+        self.broadcast_btn.grid(row=0, column=2, padx=5, sticky="we")
 
         Thread(target=self._auto_refresh_history, daemon=True).start()
 
+    def send_broadcast(self):
+        """Envía el mensaje actual como broadcast a todos los peers"""
+        message = self.message_entry.get().strip()
+        if not message:
+            messagebox.showwarning("Advertencia", "El mensaje no puede estar vacío.")
+            return
+            
+        if not hasattr(self, 'client') or not self.client:
+            messagebox.showerror("Error", "No hay conexión activa.")
+            return
+            
+        # Confirmación antes de enviar
+        if not messagebox.askyesno("Confirmar", f"¿Enviar este mensaje a TODOS los peers?\n\n{message}"):
+            return
+            
+        try:
+            # Usar el método uno_a_muchos del cliente
+            threading.Thread(target=self.client.uno_a_muchos, args=(message,), daemon=True).start()
+            
+            # Mostrar en el chat
+            self.chat_area.configure(state="normal")
+            self.chat_area.insert("end", f"[Broadcast enviado a todos]: {message}\n")
+            self.chat_area.configure(state="disabled")
+            
+            # Limpiar el campo de mensaje
+            self.message_entry.delete(0, "end")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo enviar el broadcast: {str(e)}")
+
     def update_peers(self):
-        # Clear existing peer widgets
         for widget in self.peer_listbox.winfo_children():
             widget.destroy()
             
-        # Add new peers
         for peer_id in self.client.peers:
             peer_label = ctk.CTkLabel(self.peer_listbox, text=peer_id, font=("Helvetica", 12))
             peer_label.pack(fill="x", pady=2)
             peer_label.bind("<Button-1>", lambda e, pid=peer_id: self._select_peer(pid))
 
     def _select_peer(self, peer_id):
-        # Clear previous selection
         for widget in self.peer_listbox.winfo_children():
             widget.configure(fg_color="transparent")
             
-        # Highlight selected peer
         for widget in self.peer_listbox.winfo_children():
             if widget.cget("text") == peer_id:
                 widget.configure(fg_color="#3B8ED0")
                 break
 
     def get_selected_peer(self):
-        # Find which peer is selected (has colored background)
         for widget in self.peer_listbox.winfo_children():
             if widget.cget("fg_color") == "#3B8ED0":
                 return widget.cget("text")
@@ -154,7 +186,6 @@ class LCPGUI:
             self.root.after(0, lambda: self.message_entry.delete(0, "end"))
             self._refresh_history()
             
-            # Print in chat area
             self.chat_area.configure(state="normal")
             self.chat_area.insert("end", f"Mensaje enviado a {peer_id}: {message}\n")
             self.chat_area.configure(state="disabled")
@@ -201,6 +232,7 @@ class LCPGUI:
         state = "normal" if enabled else "disabled"
         self.send_msg_btn.configure(state=state)
         self.send_file_btn.configure(state=state)
+        self.broadcast_btn.configure(state=state)
         self.message_entry.configure(state=state)
 
     def shutdown(self):

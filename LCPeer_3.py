@@ -156,7 +156,9 @@ class LCPClient:
             if user_to == b"\xff" * 20 or user_to == self.user_id:
                 body_id = data[41]
                 body_length = int.from_bytes(data[42:50], "big")
-
+                if user_from == self.user_id:
+                    print("hols")
+                    return
                 # Enviar ACK
                 response = self._build_response(status=0)
                 self.udp_socket.sendto(response, addr)
@@ -424,7 +426,7 @@ class LCPClient:
             return
 
         # Generar ID único para el archivo
-        file_id = uuid.uuid4().int % 256  # 8 bytes
+        file_id = uuid.uuid4().int % 256  # 1 bytes
         file_size = os.path.getsize(filepath)
 
         # Construir y enviar header
@@ -470,60 +472,20 @@ class LCPClient:
         self.udp_socket.close()
         self.tcp_socket.close()
 
+    def uno_a_muchos(self,sms):
+        try:
+            s=sms.encode('utf-8')
+            id = uuid.uuid4().int % 256
+            header = self._build_header(operation=1, user_to=b"\xff" * 20,body_id=id,body_length=len(s))
+            ip,mask=get_ip_and_mask()
+            b = calcular_broadcast(ip,mask)
+            for i in b :
+                self.udp_socket.sendto(header, (i, 9990))
 
-def main():
-    user_id = input("Enter your user ID (max 20 chars): ")
-    client = LCPClient(user_id)
+            body = id.to_bytes(8,'big')+s
+            for i in b:
+                self.udp_socket.sendto(body,(i,9990))
+            
 
-    try:
-        while True:
-            print("\nOptions:")
-            print("1. List peers")
-            print("2. Send message")
-            print("3. Send file")
-            print("4. Show message history")
-            print("6. Exit")
-
-            choice = input("Choose an option: ")
-
-            if choice == "1":
-                print("\nDiscovered peers:")
-                if not client.peers:
-                    print("No peers discovered yet.")
-                else:
-                    for peer_id, addr in client.peers.items():
-                        print(f"- {peer_id} at {addr[0]}:{addr[1]}")
-
-            elif choice == "2":
-                peer_id = input("Enter peer ID: ")
-                message = input("Enter message: ")
-                success = client.send_message(peer_id, message)
-                if success:
-                    print("Mensaje enviado correctamente")
-                else:
-                    print("No se pudo enviar el mensaje")
-
-            elif choice == "3":
-                peer_id = input("Enter peer ID: ")
-                filepath = input("Enter file path: ")
-                client.send_file(peer_id, filepath)
-
-            elif choice == "4":
-                print("\nMessage history:")
-                if not client.message_history:
-                    print("No messages in history.")
-                else:
-                    for sender, message, timestamp in client.message_history:
-                        print(f"[{timestamp.strftime('%H:%M:%S')}] {sender}: {message}")
-
-            elif choice == "6":
-                break
-
-            else:
-                print("Invalid option")
-    finally:
-        client.shutdown()
-
-
-if __name__ == "__main__":
-    main()
+        except:
+           pass
