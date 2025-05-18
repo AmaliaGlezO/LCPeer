@@ -293,67 +293,124 @@ class LCPClient:
             self.send_message_to_all(message)
             return
         
-        if peer_id == b'\0ff'*20:
-            ip, mask = get_ip_and_mask()
-            broadcast = calcular_broadcast(ip, mask) or '255.255.255.255'
-            addr = (broadcast, 9990)
-        else:
-            if self.normalizar(peer_id) not in self.peers:
-                print(f"Peer {peer_id} no encontrado")
-                return
-            addr = self.peers[peer_id]
+        # Normalizar peer_id y verificar existencia
+        peer_id_normalized = self.normalizar(peer_id)
+        if peer_id_normalized not in self.peers:
+            print(f"Peer {peer_id} no encontrado")
+            return
         
+        # Obtener dirección del peer (teniendo en cuenta la estructura (ip, port, last_seen))
+        addr = (self.peers[peer_id_normalized][0], self.peers[peer_id_normalized][1])
+        
+        # Generar ID único para el mensaje
         body_id = uuid.uuid4().int % 256
+        
+        # Construir header según LCP
         header = self._build_header(
             operation=1,
-            user_to=peer_id.ljust(20)[:20].encode('utf-8') if peer_id != chr(255)*20 else b'\xFF'*20,
+            user_to=peer_id.ljust(20)[:20].encode('utf-8'),
             body_id=body_id,
             body_length=len(message.encode('utf-8'))
         )
-        self.udp_socket.sendto(header, (addr[0],addr[1]))
+        
+        # Enviar header
+        self.udp_socket.sendto(header, addr)
+        
         try:
+            # Esperar ACK con timeout
             self.udp_socket.settimeout(5)
-            ack = self.response_queue.get()
-            if ack[0] == 0:
+            ack, _ = self.udp_socket.recvfrom(25)
+            
+            if ack[0] == 0:  # OK
+                # Enviar cuerpo del mensaje
                 body = body_id.to_bytes(8, 'big') + message.encode('utf-8')
                 self.udp_socket.sendto(body, addr)
+                
+                # Esperar confirmación final
                 final_ack, _ = self.udp_socket.recvfrom(25)
                 if final_ack[0] == 0:
-                    self.message_history.append((self.user_id.decode('utf-8').strip(), message, datetime.now()))
-        except queue.Empty:
-            print(f"Timeout esperando ACK de {peer_id}")
+                    self.message_history.append((
+                        self.user_id.decode('utf-8').strip(), 
+                        message, 
+                        datetime.now()
+                    ))
+                    print(f"Mensaje enviado a {peer_id}")
+                else:
+                    print(f"Error en confirmación final de {peer_id}")
+            else:
+                print(f"Error en ACK inicial de {peer_id}")
+                
+        except socket.timeout:
+            print(f"Timeout esperando respuesta de {peer_id}")
         finally:
             self.udp_socket.settimeout(None)
 
     def send_file(self, peer_id, filepath):
-        if peer_id not in self.peers:
+        """Envía un archivo a un peer específico."""
+        # Verificar existencia del peer
+        peer_id_normalized = self.normalizar(peer_id)
+        if peer_id_normalized not in self.peers:
             print(f"Peer {peer_id} not found")
             return
+        
+        # Verificar existencia del archivo
         if not os.path.exists(filepath):
             print(f"File {filepath} not found")
             return
+    
+        # Obtener dirección del peer
+        addr = (self.peers[peer_id_normalized][0], self.peers[peer_id_normalized][1])
+        
+        # Generar ID único para el archivo
         file_id = uuid.uuid4().int % 256
         file_size = os.path.getsize(filepath)
+        
+        # Construir y enviar header UDP
         header = self._build_header(
             operation=2,
             user_to=peer_id.ljust(20)[:20].encode('utf-8'),
             body_id=file_id,
             body_length=file_size
         )
-        addr = self.peers[peer_id]
         self.udp_socket.sendto(header, addr)
+        
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.connect(addr)
-                with open(filepath, 'rb') as f:
+            # Esperar ACK del header
+            self.udp_socket.settimeout(5)
+            ack, _ = self.udp_socket.recvfrom(25)
+            
+            if ack[0] == 0:  # OK
+                # Establecer conexión TCP para enviar el archivo
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(10)
+                    s.connect(addr)
+                    
+                    # Enviar ID del archivo primero
                     s.send(file_id.to_bytes(8, 'big'))
-                    s.sendfile(f)
-                s.settimeout(5)
-                final_ack = s.recv(25)
-                if final_ack[0] == 0:
-                    print(f"File sent to {peer_id}")
+                    
+                    # Enviar archivo en chunks
+                    with open(filepath, 'rb') as f:
+                        while True:
+                            chunk = f.read(1024*1024)  # 1MB chunks
+                            if not chunk:
+                                break
+                            s.send(chunk)
+                    
+                    # Esperar confirmación final
+                    final_ack = s.recv(25)
+                    if final_ack[0] == 0:
+                        print(f"Archivo enviado a {peer_id}")
+                    else:
+                        print(f"Error en confirmación final de {peer_id}")
+            else:
+                print(f"Error en ACK inicial de {peer_id}")
+                
+        except socket.timeout:
+            print(f"Timeout esperando respuesta de {peer_id}")
         except Exception as e:
-            print(f"Error sending file: {e}")
+            print(f"Error enviando archivo: {e}")
+        finally:
+            self.udp_socket.settimeout(None)
 
     def _build_header(self, operation, user_to, body_id=0, body_length=0):
         """Construye el header según especificación LCP"""

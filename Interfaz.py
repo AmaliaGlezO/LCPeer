@@ -41,6 +41,7 @@ class LCPGUI:
                                      width=300, 
                                      height=40,
                                      font=("Arial", 14))
+        self.user_entry.insert(0, "Amalia")  # Establecer el valor predeterminado
         self.user_entry.pack(pady=10)
         
         ctk.CTkButton(login_form, 

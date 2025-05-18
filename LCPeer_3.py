@@ -137,7 +137,7 @@ class LCPClient:
                         print(f"\nMessage from {user_from.decode('utf-8')}: {message}")
                         # Enviar confirmación final
                         self.udp_socket.sendto(response, addr)
-                        self.response_queue.put((addr, response))  # Colocar respuesta en la cola
+                        self.response_queue.put(response)  # Colocar respuesta en la cola
                         
                 except Exception as e:
                     print(f"Error receiving message body: {e}")
@@ -196,59 +196,82 @@ class LCPClient:
             conn.close()
     
     def send_message(self, peer_id, message):
-        """Envía un mensaje a un peer específico"""
+        """Envía un mensaje a un peer específico con reintentos"""
         print(f"Intentando enviar mensaje a {peer_id}: {message}")
         if self.normalizar(peer_id) not in self.peers:
             print(f"Peer {peer_id} no encontrado")
             return
         
         # Generar ID único para el mensaje
-        body_id = uuid.uuid4().int %256  # 1 bytes
+        body_id = uuid.uuid4().int % 256  # 1 byte
         print(f"ID del cuerpo del mensaje generado: {body_id}")
 
-        # Construir y enviar header
+        # Construir header
         header = self._build_header(
             operation=1,
             user_to=peer_id.ljust(20)[:20].encode('utf-8'),
             body_id=body_id,
             body_length=len(message.encode('utf-8')))
         
-        print(f"Header construido: {header}")
         addr = self.peers[peer_id]
-        print(addr)
-        self.udp_socket.sendto(header, addr)
-        print("Header enviado.")
-
-        # Esperar ACK
-        try:
-            self.udp_socket.settimeout(5)
-            ack = self.response_queue.get() 
-            self.udp_socket.settimeout(None)
-            # Obtener respuesta de la cola
-            print(f"ACK recibido: {ack}")
-            print(ack)
-            if ack[0] == 0:  # OK
-                # Enviar cuerpo del mensaje
-                body = body_id.to_bytes(8, 'big') + message.encode('utf-8')
-                print(f"Enviando cuerpo del mensaje: {body}")
+        
+        # Paso 1: Envío de header y espera de ACK con reintentos
+        header_sent = False
+        for attempt in range(5):
+            try:
+                print(f"Intento {attempt + 1}/5: Enviando header...")
+                self.udp_socket.sendto(header, addr)
+                
+                # Esperar ACK con timeout
+                self.udp_socket.settimeout(5)
+                try:
+                    ack = self.response_queue.get(timeout=5)
+                    if ack[0] == 0:  # OK
+                        print("ACK recibido, procediendo a enviar cuerpo del mensaje")
+                        header_sent = True
+                        break
+                    else:
+                        print(f"ACK no válido recibido, reintentando...")
+                except queue.Empty:
+                    print("Timeout esperando ACK, reintentando...")
+            except Exception as e:
+                print(f"Error enviando header: {e}, reintentando...")
+            finally:
+                self.udp_socket.settimeout(None)
+        
+        if not header_sent:
+            print("Fallo después de 5 intentos de enviar header")
+            return
+        
+        # Paso 2: Envío de cuerpo y espera de confirmación final con reintentos
+        body = body_id.to_bytes(8, 'big') + message.encode('utf-8')
+        message_sent = False
+        
+        for attempt in range(5):
+            try:
+                print(f"Intento {attempt + 1}/5: Enviando cuerpo del mensaje...")
                 self.udp_socket.sendto(body, addr)
-                print("Cuerpo del mensaje enviado.")
                 
                 # Esperar confirmación final
                 self.udp_socket.settimeout(5)
-                
-                final_ack = self.response_queue.get()
+                try:
+                    final_ack = self.response_queue.get(timeout=5)
+                    if final_ack[0] == 0:
+                        print("Confirmación final recibida, mensaje enviado con éxito")
+                        self.message_history.append((self.user_id.decode('utf-8').strip(), message, datetime.now()))
+                        message_sent = True
+                        break
+                    else:
+                        print(f"Confirmación no válida recibida, reintentando...")
+                except queue.Empty:
+                    print("Timeout esperando confirmación final, reintentando...")
+            except Exception as e:
+                print(f"Error enviando cuerpo del mensaje: {e}, reintentando...")
+            finally:
                 self.udp_socket.settimeout(None)
-                print(f"Confirmación final recibida: {final_ack}")
-                if final_ack[0] == 0:
-                    print(f"Mensaje enviado a {peer_id}")
-                    self.message_history.append((self.user_id.decode('utf-8').strip(), message, datetime.now()))
-                else:
-                    print(f"Falló el envío del mensaje a {peer_id}")
-        except queue.Empty:
-            print(f"Timeout esperando ACK de {peer_id}")
-        finally:
-            self.udp_socket.settimeout(None)
+        
+        if not message_sent:
+            print("Fallo después de 5 intentos de enviar mensaje completo")
     
     def send_file(self, peer_id, filepath):
         """Envía un archivo a un peer específico"""
