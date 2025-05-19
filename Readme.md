@@ -1,40 +1,76 @@
-# 🖇️ LCPeer: Chat P2P para Redes Locales  
-**Asignatura**: Sistemas Computacionales y Redes (2024)  
-**Autor**: [Amalia González Ortega]  
-**Fecha de entrega**: 19 de mayo de 2024  
+ 
+# 🖇️ LCPeer: Chat P2P para Redes Locales
+**Asignatura**: Sistemas Computacionales y Redes 
+(2024)  
+## 👥 Autor
+- **Nombre**: Amalia González Ortega
+- **Asignatura**: Sistemas Computacionales y Redes
+- **Fecha**: 2024
+
+## 📝 Descripción
+LCPeer es una aplicación de mensajería peer-to-peer (P2P) diseñada para funcionar en redes locales (LAN). Utiliza el protocolo LCP (Local Chat Protocol) para permitir la comunicación directa entre usuarios sin necesidad de servidores centrales.
+
+## 🎯 Características Principales
+
+### 🔹 Comunicación P2P
+- **Chat Individual**: Comunicación directa entre dos usuarios
+- **Broadcast**: Envío de mensajes a todos los usuarios conectados
+- **Transferencia de Archivos**: Compartir archivos entre usuarios
+
+### 🔹 Interfaz Gráfica
+- **Diseño Moderno**: Interfaz construida con CustomTkinter
+- **Lista de Usuarios**: Muestra los peers disponibles en tiempo real
+- **Indicadores de Estado**: Muestra qué usuarios están en línea
+- **Historial de Chat**: Visualización de conversaciones anteriores
+
+### 🔹 Sistema de Historial
+- **Almacenamiento Local**: Guarda las conversaciones en archivos JSON
+- **Persistencia**: Mantiene el historial entre sesiones
+- **Organización**: Historial separado por usuario y broadcast
+
+### 🔹 Características Técnicas
+- **Protocolo LCP**: Implementación del protocolo local de chat
+- **Autodescubrimiento**: Detección automática de usuarios en la red
+- **Comunicación Bidireccional**: UDP para control y TCP para archivos
+- **Manejo de Errores**: Sistema robusto de manejo de excepciones
+
+
+### Funcionalidades
+1. **Chat Individual**
+   - Seleccionar un usuario de la lista
+   - Escribir mensaje y presionar "Enviar Mensaje"
+   - Ver historial de la conversación
+
+2. **Broadcast**
+   - Escribir mensaje
+   - Presionar "Enviar a Todos"
+   - Confirmar envío
+
+3. **Transferencia de Archivos**
+   - Seleccionar usuario
+   - Presionar "Enviar Archivo"
+   - Elegir archivo a enviar
+
+## 🛠️ Arquitectura
+```plaintext
+[Interfaz Gráfica (GUI)]
+        │
+        ▼
+[Cliente LCP (P2P)] ←→ [Red Local]
+        │
+        ▼
+[Almacenamiento Local]
+    - Historial JSON
+    - Archivos Recibidos
+```
 
 
 
-## 🎯 Objetivo  
+# 🎯 Objetivo  
 Crear un sistema de mensajería **descentralizado** que funcione en redes LAN sin servidores centrales, con autodescubrimiento automático y funcionalidades avanzadas como grupos e historial.  
 
 ---
 
-## ✅ Funcionalidades Implementadas  
-
-### 🔹 Básicas (Requisitos)  
-[✅] **Protocolo LCP**  
-- Formato de mensajes: `TIMESTAMP|USUARIO|TIPO|CONTENIDO`.  
-- Autenticación básica con nicknames.  
-
-[✅] **Autodescubrimiento LAN**  
-- Detección automática de usuarios usando UDP broadcast.  
-- Actualización dinámica de la lista de contactos.  
-
-### 🔹 Adicionales (Extras)  
-[✅] **Modo uno-a-muchos**  
-- Envío de mensajes a todos los usuarios con una sola transmisión.  
-
-[✅] **Mensajes grupales**  
-- Creación/unión a grupos (`/create`, `/join`).  
-- Envío de mensajes a grupos específicos (`@grupo mensaje`).  
-
-[✅] **Historial offline**  
-- Almacena últimos 10 mensajes por chat/grupo (SQLite).  
-
-[🔄] **Interfaz gráfica (GUI)**  
-- Listado de usuarios/grupos en tiempo real.  
-- Pestañas para chats individuales y grupales.  
 
 ---
 
