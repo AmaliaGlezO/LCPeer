@@ -20,7 +20,7 @@ def get_ip_and_mask():
         local_ip = s.getsockname()[0]
         s.close()
 
-        # Detección de máscara según SO
+        # Detección de máscara 
         if platform.system() == "Windows":
             return get_windows_mask(local_ip)
 
@@ -39,7 +39,7 @@ def get_windows_mask(local_ip):
         # Buscar la interfaz con la IP local
         for line in output.split("\n"):
             if f"IPv4 Address. . . . . . . . . . . : {local_ip}" in line:
-                # La máscara está en las líneas siguientes
+                # La máscara 
                 mask_line = next(
                     l
                     for l in output.split("\n")[output.split("\n").index(line) :]
@@ -62,14 +62,14 @@ def calcular_broadcast(ip, mask):
 
 class LCPClient:
     def __init__(self, user_id, max_history_size=100):
-        self.user_id = user_id.ljust(20)[:20].encode("utf-8")  # Asegurar 20 bytes
-        self.peers = {}  # {peer_id: (ip, port)}
+        self.user_id = user_id.ljust(20)[:20].encode("utf-8")  
+        self.peers = {}  
         self.running = True
         self.message_history = []
         self.max_history_size = (
-            max_history_size  # Límite de mensajes en historial (100 por defecto)
+            max_history_size  
         )
-        self.response_queue = queue.Queue()  # Cola para respuestas
+        self.response_queue = queue.Queue()  
 
         # Para manejar callbacks de mensajes
         try:
@@ -84,17 +84,17 @@ class LCPClient:
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.udp_socket.bind(("0.0.0.0", 9990))  # Escuchar en todas las interfaces
+        self.udp_socket.bind(("0.0.0.0", 9990)) 
         self.udp_socket.setsockopt(
             socket.SOL_SOCKET, socket.SO_RCVBUF, 65507
-        )  # Aumentar el búfer de recepción
+        )  
 
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.tcp_socket.bind(("0.0.0.0", 9990))
         self.tcp_socket.listen(5)
 
-        # Iniciar hilos
+        
         threading.Thread(target=self._udp_listener, daemon=True).start()
         threading.Thread(target=self._tcp_listener, daemon=True).start()
         threading.Thread(target=self._discovery_broadcast, daemon=True).start()
@@ -109,7 +109,7 @@ class LCPClient:
             for i in b:
                 self.udp_socket.sendto(header, (i, 9990))  # Broadcast
             print("Paquete de descubrimiento enviado.")
-            threading.Event().wait(5)  # Esperar 5 segundos
+            threading.Event().wait(5)  
 
     def _udp_listener(self):
         """Escucha mensajes UDP entrantes"""
@@ -170,7 +170,6 @@ class LCPClient:
 
         elif operation == 1:  # Mensaje
             if user_to == b"\xff" * 20 or user_to == self.user_id:
-                # Verificar si el mensaje proviene de nosotros mismos
                 if user_from == self.user_id.strip(b"\x00"):
                     print("Ignorando mensaje propio")
                     return
@@ -186,9 +185,8 @@ class LCPClient:
 
                 # Esperar el cuerpo del mensaje con timeout
                 try:
-                    # Guardar el timeout original
                     original_timeout = self.udp_socket.gettimeout()
-                    self.udp_socket.settimeout(5)  # 5 segundos de timeout
+                    self.udp_socket.settimeout(5)  
 
                     body_data, body_addr = self.udp_socket.recvfrom(65507)
                     if len(body_data) >= 8:
@@ -220,7 +218,6 @@ class LCPClient:
                         if hasattr(self, "message_handler") and self.message_handler:
                             if is_broadcast:
                                 print(f"Notificando mensaje BROADCAST: {message}")
-                                # Notificar SOLO a través del callback, no guardar en historial múltiple
                                 self.message_handler.notify_message(
                                     "Broadcast", message
                                 )
@@ -297,7 +294,7 @@ class LCPClient:
                 conn.send(response)
             else:
                 print("Error: archivo recibido incompleto.")
-                response = self._build_response(status=1)  # Error
+                response = self._build_response(status=1) 
                 conn.send(response)
         except Exception as e:
             print(f"Error handling TCP connection: {e}")
@@ -535,18 +532,15 @@ class LCPClient:
         """Envía un mensaje broadcast a todos los peers en la red"""
         try:
             print(f"Iniciando envío de mensaje broadcast: {sms}")
-            # Codificar el mensaje
             s = sms.encode("utf-8")
             body_id = (
                 int(time.time() * 1000) % 256
-            )  # Usar un número grande para minimizar colisiones
-
+            )  
             # Construir header para broadcast
             header = self._build_header(
                 operation=1, user_to=b"\xff" * 20, body_id=body_id, body_length=len(s)
             )
 
-            # Para depuración
             print(f"Body ID generado para broadcast: {body_id}")
 
             # Limpiar cualquier respuesta antigua en la cola
