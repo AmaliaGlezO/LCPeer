@@ -81,4 +81,4 @@ Crear un sistema de mensajería **descentralizado** que funcione en redes LAN si
 [Usuario A] ────┼───► [Usuario B]  
    │  ▲           ▲  │  
    ▼  └───[LAN]───┘  ▼  
-[GUI]            [Historial SQLite]  
+[GUI]            [Historial]  
