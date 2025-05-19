@@ -1,7 +1,7 @@
  
 # 🖇️ LCPeer: Chat P2P para Redes Locales
 **Asignatura**: Sistemas Computacionales y Redes 
-(2024)  
+(2025)  
 ## 👥 Autor
 - **Nombre**: Amalia González Ortega
 - **Asignatura**: Sistemas Computacionales y Redes
