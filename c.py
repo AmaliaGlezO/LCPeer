@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from threading import Thread
-from LCPeer_3 import LCPClient
+from a import LCPClient
 import time
 import threading
 import json
