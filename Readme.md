@@ -4,7 +4,7 @@
 ## 👥 Autor
 - **Nombre**: Amalia González Ortega
 - **Asignatura**: Sistemas Computacionales y Redes
-- **Fecha**: 2024
+- **Fecha**: 19/mayo/2025, 11:59:59 PM
 
 ## 📝 Descripción
 LCPeer es una aplicación de mensajería peer-to-peer (P2P) diseñada para funcionar en redes locales (LAN). Utiliza el protocolo LCP (Local Chat Protocol) para permitir la comunicación directa entre usuarios sin necesidad de servidores centrales.
