@@ -1,12 +1,13 @@
-import customtkinter as ctk
-from tkinter import filedialog, messagebox
-from threading import Thread
-from LCPeer_3 import LCPClient
-import time
-import threading
-import json
-import os
-from datetime import datetime
+# Importación de bibliotecas necesarias
+import customtkinter as ctk  # Biblioteca para interfaz gráfica moderna
+from tkinter import filedialog, messagebox  # Diálogos de archivo y mensajes
+from threading import Thread  # Para operaciones en segundo plano
+from LCPeer_3 import LCPClient  # Cliente P2P personalizado
+import time  # Para operaciones de tiempo
+import threading  # Para manejo de hilos
+import json  # Para manejo de archivos JSON
+import os  # Para operaciones del sistema de archivos
+from datetime import datetime  # Para manejo de fechas y horas
 
 
 class LCPGUI:
@@ -21,6 +22,7 @@ class LCPGUI:
 
         self.client = None
         self.current_peer = None
+        self.is_updating = False
         self.history_dir = "chat_history"
         self._create_history_dir()
         self._build_login()
@@ -130,23 +132,25 @@ class LCPGUI:
             hover_color="#45a049",
         ).pack(pady=5)
 
+
     def start_client(self):
+        """Inicia el cliente P2P con el ID proporcionado"""
         user_id = self.user_entry.get().strip()
         if not user_id:
             messagebox.showerror("Error", "El ID de usuario no puede estar vacío.")
             return
 
-        # Crear cliente con historial ILIMITADO (0) para mantener todos los mensajes
-        self.client = LCPClient(user_id, max_history_size=100)
-
+        self.client = LCPClient(user_id)  # Crea el cliente P2P
         # Registrar callback para mensajes entrantes
         try:
             self.client.register_message_callback(self._on_message_received)
         except Exception as e:
             print(f"Error registrando callback: {e}")
+        self.login_frame.destroy()  # Elimina la pantalla de login
+        self._build_main_interface()  # Construye la interfaz principal
 
-        self.login_frame.destroy()
-        self._build_main_interface()
+
+
 
     def _build_main_interface(self):
         self.root.grid_columnconfigure(1, weight=1)
@@ -163,66 +167,106 @@ class LCPGUI:
         self.right_frame.grid_rowconfigure(0, weight=1)
         self.right_frame.grid_columnconfigure(0, weight=1)
 
-        # Peer list
-        self.peer_listbox = ctk.CTkScrollableFrame(
-            self.left_frame, label_text="Peers disponibles"
+        # Título de la lista de peers
+        self.peer_list_title = ctk.CTkLabel(
+            self.left_frame, 
+            text="PEERS DISPONIBLES", 
+            font=("Helvetica", 14, "bold"),
+            pady=10
         )
+        self.peer_list_title.grid(row=0, column=0, sticky="we", padx=5, pady=(5, 10))
+
+        # Peer list
+        self.peer_listbox = ctk.CTkScrollableFrame(self.left_frame)
         self.peer_listbox.grid(row=1, column=0, padx=5, pady=5, sticky="nswe")
         self.peer_listbox.grid_columnconfigure(0, weight=1)
 
-        # Buttons in left frame
+
+        # Botones de control
         ctk.CTkButton(
-            self.left_frame,
-            text="Actualizar pares",
-            command=self.update_peers,
-            fg_color="#2196F3",
-            hover_color="#1976D2",
+            self.left_frame, 
+            text="Actualizar lista", 
+            command=self.update_peers, 
+            fg_color="#2c3e50",
+            hover_color="#34495e"
         ).grid(row=2, column=0, padx=5, pady=5, sticky="we")
 
         ctk.CTkButton(
-            self.left_frame,
-            text="Cerrar",
-            command=self.shutdown,
-            fg_color="#f44336",
-            hover_color="#d32f2f",
+            self.left_frame, 
+            text="Cerrar", 
+            command=self.shutdown, 
+            fg_color="#c0392b",
+            hover_color="#e74c3c"
         ).grid(row=3, column=0, padx=5, pady=5, sticky="we")
+
+        # Encabezado del chat
+        self.chat_header = ctk.CTkLabel(
+            self.right_frame, 
+            text="Seleccione un peer para chatear",
+            font=("Helvetica", 14, "bold"),
+            height=40,
+            corner_radius=5
+        )
+        self.chat_header.grid(row=0, column=0, padx=10, pady=5, sticky="nwe")
 
         # Chat area
         self.chat_area = ctk.CTkTextbox(
-            self.right_frame, font=("Helvetica", 12), wrap="word"
+            self.right_frame, 
+            font=("Helvetica", 12), 
+            wrap="word",
+            height=400
         )
-        self.chat_area.grid(row=0, column=0, padx=10, pady=10, sticky="nswe")
+        self.chat_area.grid(row=1, column=0, padx=10, pady=5, sticky="nswe")
         self.chat_area.configure(state="disabled")
 
+        # Campo de entrada de mensaje
+        self.message_entry = ctk.CTkEntry(
+            self.right_frame, 
+            font=("Helvetica", 12),
+            placeholder_text="Escribe tu mensaje aquí..."
+        )
+
         # Message entry
-        self.message_entry = ctk.CTkEntry(self.right_frame, font=("Helvetica", 12))
-        self.message_entry.grid(row=1, column=0, padx=10, pady=(0, 5), sticky="we")
+        self.message_entry.grid(row=2, column=0, padx=10, pady=(5, 5), sticky="we")
         self.message_entry.bind("<Return>", lambda event: self.send_message())
 
-        # Button frame
+        # Frame para botones de acción
         button_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
-        button_frame.grid(row=2, column=0, pady=10, sticky="we")
+        button_frame.grid(row=3, column=0, pady=5, sticky="we")
         button_frame.grid_columnconfigure(0, weight=1)
         button_frame.grid_columnconfigure(1, weight=1)
         button_frame.grid_columnconfigure(2, weight=1)
 
+        # Botón de enviar mensaje
         self.send_msg_btn = ctk.CTkButton(
-            button_frame,
-            text="Enviar Mensaje",
+            button_frame, 
+            text="Enviar Mensaje", 
             command=self.send_message,
-            fg_color="#4CAF50",
-            hover_color="#45a049",
-            font=("Helvetica", 12),
+            fg_color="#2c3e50",
+            hover_color="#34495e",
+            font=("Helvetica", 12)
         )
         self.send_msg_btn.grid(row=0, column=0, padx=5, sticky="we")
 
+        # Botón de enviar mensaje
+        self.send_msg_btn = ctk.CTkButton(
+            button_frame, 
+            text="Enviar Mensaje", 
+            command=self.send_message,
+            fg_color="#2c3e50",
+            hover_color="#34495e",
+            font=("Helvetica", 12)
+        )
+        self.send_msg_btn.grid(row=0, column=0, padx=5, sticky="we")
+
+        # Botón de enviar archivo
         self.send_file_btn = ctk.CTkButton(
-            button_frame,
-            text="Enviar Archivo",
+            button_frame, 
+            text="Enviar Archivo", 
             command=self.send_file,
-            fg_color="#2196F3",
-            hover_color="#1976D2",
-            font=("Helvetica", 12),
+            fg_color="#2c3e50",
+            hover_color="#34495e",
+            font=("Helvetica", 12)
         )
         self.send_file_btn.grid(row=0, column=1, padx=5, sticky="we")
 
@@ -230,8 +274,8 @@ class LCPGUI:
             button_frame,
             text="Enviar a Todos",
             command=self.send_broadcast,
-            fg_color="#9C27B0",
-            hover_color="#7B1FA2",
+            fg_color="#2c3e50",
+            hover_color="#34495e",
             font=("Helvetica", 12),
         )
         self.broadcast_btn.grid(row=0, column=2, padx=5, sticky="we")
@@ -299,13 +343,38 @@ class LCPGUI:
         separator = ctk.CTkFrame(self.peer_listbox, height=1)
         separator.pack(fill="x", pady=8, padx=10)
 
-        # Añadir peers
+        # Añade los peers actuales con indicador de estado
         for peer_id in self.client.peers:
+            # Frame para contener el círculo y el nombre
+            peer_frame = ctk.CTkFrame(self.peer_listbox, fg_color="transparent")
+            peer_frame.pack(fill="x", pady=2)
+            
+            # Círculo de estado (verde si está en línea)
+            if peer_id in self.client.peers:
+                status_circle = ctk.CTkLabel(
+                    peer_frame,
+                    text="●",
+                    font=("Helvetica", 12),
+                    text_color="#27ae60",
+                    width=20
+                )
+                status_circle.pack(side="left", padx=(5,0))
+
+        # Etiqueta con el nombre del peer
             peer_label = ctk.CTkLabel(
-                self.peer_listbox, text=peer_id, font=("Helvetica", 12)
+                peer_frame,
+                text=peer_id,
+                font=("Helvetica", 12),
+                fg_color="#2c3e50",
+                corner_radius=5,
+                height=30
             )
-            peer_label.pack(fill="x", pady=2)
+            peer_label.pack(side="left", fill="x", expand=True, padx=(5,5))
+            
+            # Vincula eventos de clic
+            peer_frame.bind("<Button-1>", lambda e, pid=peer_id: self._select_peer(pid))
             peer_label.bind("<Button-1>", lambda e, pid=peer_id: self._select_peer(pid))
+
 
     def _select_peer(self, peer_id):
         """Selecciona un peer y carga su historial de chat"""

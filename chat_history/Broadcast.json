@@ -3,5 +3,80 @@
     "timestamp": "2025-05-19T11:51:56.390558",
     "sender": "Amalia",
     "message": "gentee"
+  },
+  {
+    "timestamp": "2025-05-19T13:59:51.344844",
+    "sender": "Amalia",
+    "message": "hola"
+  },
+  {
+    "timestamp": "2025-05-19T14:10:17.219838",
+    "sender": "Amalia",
+    "message": "Esto es un Broadcast"
+  },
+  {
+    "timestamp": "2025-05-19T14:10:20.614782",
+    "sender": "Amalia",
+    "message": "Esto es un Broadcast"
+  },
+  {
+    "timestamp": "2025-05-19T14:17:15.879360",
+    "sender": "Amalia",
+    "message": "hola"
+  },
+  {
+    "timestamp": "2025-05-19T14:22:54.032022",
+    "sender": "Amalia",
+    "message": "hola"
+  },
+  {
+    "timestamp": "2025-05-19T14:23:31.435988",
+    "sender": "Amalia",
+    "message": "hola"
+  },
+  {
+    "timestamp": "2025-05-19T14:41:28.826756",
+    "sender": "Amalia",
+    "message": "te llega este broadcast?"
+  },
+  {
+    "timestamp": "2025-05-19T14:43:42.383680",
+    "sender": "Amalia",
+    "message": "te llega esto?"
+  },
+  {
+    "timestamp": "2025-05-19T14:47:09.391665",
+    "sender": "Amalia",
+    "message": "hola"
+  },
+  {
+    "timestamp": "2025-05-19T14:47:12.162323",
+    "sender": "Amalia",
+    "message": "hola"
+  },
+  {
+    "timestamp": "2025-05-19T14:50:54.092917",
+    "sender": "T\u00fa (Broadcast)",
+    "message": "Te llega esto?"
+  },
+  {
+    "timestamp": "2025-05-19T15:02:25.790545",
+    "sender": "Amalia",
+    "message": "heyyy"
+  },
+  {
+    "timestamp": "2025-05-19T15:11:09.644036",
+    "sender": "T\u00fa (Broadcast)",
+    "message": "holaaa"
+  },
+  {
+    "timestamp": "2025-05-19T15:11:22.839931",
+    "sender": "Amalia",
+    "message": "Archivo enviado: Analisis Matematico1 Tomo 1.pdf"
+  },
+  {
+    "timestamp": "2025-05-19T15:14:09.116536",
+    "sender": "Broadcast",
+    "message": "hh"
   }
 ]
