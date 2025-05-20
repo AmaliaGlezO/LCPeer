@@ -19,7 +19,6 @@ LCPeer es una aplicación de mensajería peer-to-peer (P2P) diseñada para funci
 ### 🔹 Interfaz Gráfica
 - **Diseño Moderno**: Interfaz construida con CustomTkinter
 - **Lista de Usuarios**: Muestra los peers disponibles en tiempo real
-- **Indicadores de Estado**: Muestra qué usuarios están en línea
 - **Historial de Chat**: Visualización de conversaciones anteriores
 
 ### 🔹 Sistema de Historial
@@ -50,28 +49,10 @@ LCPeer es una aplicación de mensajería peer-to-peer (P2P) diseñada para funci
    - Presionar "Enviar Archivo"
    - Elegir archivo a enviar
 
-## 🛠️ Arquitectura
-```plaintext
-[Interfaz Gráfica (GUI)]
-        │
-        ▼
-[Cliente LCP (P2P)] ←→ [Red Local]
-        │
-        ▼
-[Almacenamiento Local]
-    - Historial JSON
-    - Archivos Recibidos
-```
-
-
 
 # 🎯 Objetivo  
 Crear un sistema de mensajería **descentralizado** que funcione en redes LAN sin servidores centrales, con autodescubrimiento automático y funcionalidades avanzadas como grupos e historial.  
 
----
-
-
----
 
 ## 🧩 Arquitectura  
 ```plaintext
