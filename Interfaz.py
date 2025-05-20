@@ -313,16 +313,6 @@ class LCPGUI:
             peer_frame = ctk.CTkFrame(self.peer_listbox, fg_color="transparent")
             peer_frame.pack(fill="x", pady=2)
             
-            if peer_id in self.client.peers:
-                status_circle = ctk.CTkLabel(
-                    peer_frame,
-                    text="●",
-                    font=("Helvetica", 12),
-                    text_color="#27ae60",
-                    width=20
-                )
-                status_circle.pack(side="left", padx=(5,0))
-
             peer_label = ctk.CTkLabel(
                 peer_frame,
                 text=peer_id,

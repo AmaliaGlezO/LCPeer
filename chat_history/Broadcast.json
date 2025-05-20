@@ -218,5 +218,35 @@
     "timestamp": "2025-05-19T17:04:15.694570",
     "sender": "Broadcast",
     "message": "jsjsjsj"
+  },
+  {
+    "timestamp": "2025-05-19T19:16:22.672107",
+    "sender": "T\u00fa (Broadcast)",
+    "message": "lllllll"
+  },
+  {
+    "timestamp": "2025-05-19T19:27:01.972850",
+    "sender": "Amalia",
+    "message": "hola alina"
+  },
+  {
+    "timestamp": "2025-05-19T19:33:41.354784",
+    "sender": "Broadcast",
+    "message": "            \ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+    "timestamp": "2025-05-19T19:51:51.411432",
+    "sender": "T\u00fa (Broadcast)",
+    "message": "oye"
+  },
+  {
+    "timestamp": "2025-05-19T19:52:28.103265",
+    "sender": "Broadcast",
+    "message": "jjjjjj"
+  },
+  {
+    "timestamp": "2025-05-19T20:05:29.241094",
+    "sender": "T\u00fa (Broadcast)",
+    "message": "hola"
   }
 ]
